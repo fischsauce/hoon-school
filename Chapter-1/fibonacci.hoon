@@ -34,6 +34,6 @@
     fibonacci
 
 
-    :: ...else we continue, Decrement the ocunt, add the previous two Fibonaccis, then -reassign the n-1th Fibonacci to the curent. Using mul 1 here since I haven't worked out how to reassign directly whilst inside a gate...
+    :: ...else we continue, Decrement the count, add the previous two Fibonaccis, then reassign the n-1th Fibonacci to the current. Using mul 1 here since I haven't worked out how to reassign directly whilst inside a gate...
 
 $(count (dec count), fibonacci (add fibonacci previous), previous (mul fibonacci 1))
