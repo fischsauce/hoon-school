@@ -225,4 +225,48 @@
         :: (!) turn is Hoon's version of Haskell's map (!)
 
 
-        
+:: Additional Exercises:
+
+    :: 1.5e  what are the products of the following expressions?
+
+        (lent ~[1 2 3 4 5])
+        :: 5        o
+
+        (lent ~[~[1 2] ~[1 2 3] ~[2 3 4]])
+        :: 8        x       3       Why?
+        :: lent is only counting the parent cells?
+
+        (lent ~[1 2 (weld ~[1 2 3] ~[4 5 6])])
+        :: 8        x       3       Why?
+        :: as above. RHS evaluates to ~[1 2 3 4 5 6], which counts as 1. LHS stays as ~[1 2 ..[]] which counts as two.
+
+
+    :: 1.5f  bind these faces:
+
+        =b ~['moon' 'planet' 'star' 'galaxy']
+        =c ~[1 2 3]
+
+        :: determine whether the following Dojo expressions are valid, and if so, what they evaluate to:
+
+            (weld b b)
+            :: ['moon' 'planet' 'star' 'galaxy' 'moon' 'planet' 'star' 'galaxy']    o
+
+            (weld b c)
+            :: Invalid because b is composed of nouns, whilse c is pure @atoms.
+
+            (lent (weld b c))
+            :: As above: Invalid because b is composed of nouns, whilse c is pure @atoms.
+
+            (add (lent b) (lent c))
+            :: (lent b) -> 4, (lent c) -> 3 ergo total is 7.    o
+
+
+    :: 1.5g Write a gate that takes in a list a and returns %.y if a is a palindrome and %.n otherwise. You may make use of the flop function.
+
+        :: see palidrome.hoon
+
+
+
+
+
+       
