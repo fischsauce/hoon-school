@@ -202,7 +202,394 @@
 
         :: An Example Door
 
+            :: Let's write an example door in order to illustrate its features. 
             
+            :: Each of the arms in the door will define a simple gate. 
+            
+            :: Let's bind the door to c as we did with the last core. 
+            
+            :: To make a door we use the |_ rune:
+
+                =c |_  b=@
+                ++  plus  |=(a=@ (add a b))
+                ++  times  |=(a=@ (mul a b))
+                ++  greater  |=(a=@ (gth a b))
+                --
+
+            :: Before getting into what these arms do, let's cover how the |_ rune works in general.
+
+
+            :: The |_ Rune:
+
+                :: The |_ rune for making a door works exactly like the |% rune for making a core, except it takes one additional subexpression.
+
+                :: The first subexpression after the |_ rune defines the door's sample.
+                
+                :: This is the subexpression the |% rune lacks.
+                
+                :: Following that are a series of ++ runes, each of which defines an arm of the door. 
+                
+                :: Finally, the expression is terminated with a -- rune.
+
+                
+
+                :: We emphasize that a door really is, at bedrock level, the same thing as a core with a sample. 
+                
+
+
+                :: Let's ask dojo to pretty print a simple door:
+
+                    =a =>  ~  |_  b=@  ++  foo  b  --
+                    a
+                    :: <1.zgd [b=@ %~]>
+
+                    :: Dojo tells us that a is a core with one arm and a payload of [b=@ %~]. 
+                    
+                    :: Since a door's payload is [sample context], this means that b is the sample and the context is null. 
+                    
+                    :: Setting the context is what the => ~ did. 
+                    
+                    :: The reason we did this was to avoid including the standard library that is included in the context by default in dojo, which would have made the pretty printed core much more verbose.
+
+                
+                :: Now let's try to define a core with a sample:
+
+                    =a =>  ~  =|  b=@  |%  ++  foo  b  --
+                    a
+                    :: <1.zgd [b=@ %~]>
+
+                    :: Dojo gives us the same result! 
+                    
+                    :: But is the pretty printer hiding something from us?
+                    
+                    :: Recall that Hoon compiles down to Nock, Urbit's purely-functional assembly-level language. 
+                    
+                    :: The != rune returns the Nock of any Hoon expression. Let's try it on these expressions:
+
+                        !=  =>  ~  |_  b=@  ++  foo  b  --
+                        :: [7 [1 0] 8 [1 0] [1 0 6] 0 1]
+
+                        !=  =>  ~  =|  b=@  |%  ++  foo  b  --
+                        :: [7 [1 0] 8 [1 0] [1 0 6] 0 1]
+
+                    :: You don't need to know any Nock to see that these two expressions are identical. 
+                    
+                    :: Thus we have witnessed that doors really are just cores with samples.
+            
+
+
+
+            :: For the door defined below, c:
+            
+                :: =c |_  b=@
+                :: ++  plus  |=(a=@ (add a b))
+                :: ++  times  |=(a=@ (mul a b))
+                :: ++  greater  |=(a=@ (gth a b))
+                :: --
+                
+            :: the sample is defined as an atom, @, and given the face b. 
+            
+            :: The plus arm defines a gate that takes a single atom as its argument, a, and which returns the sum of a and b. 
+            
+            :: The times arm defines a gate that takes a single atom, a, and returns a times b. 
+            
+            :: The greater arm defines a gate that takes a single atom, a, and if a is greater than b returns %.y; otherwise %.n.
+
+
+            :: Let's try out the arms of c with ordinary function calls:
+
+                (plus:c 10)
+                :: 10
+
+                (times:c 10)
+                :: 0
+
+                (greater:c 10)
+                :: %.y
+
+
+            :: This works, but the results are not exciting. 
+            
+            :: Passing 10 to the plus gate returns 10, so it must be that the value of b is 0 (the bunt value of @). 
+            
+            :: The products of the other function calls reinforce that assessment. Let's look directly at +6 of c:
+
+                +6:c
+                :: b=0
+
+            :: let's mutate the c sample and then call its arms:
+
+                (plus:c(b 7) 10)
+                :: 17
+
+                (times:c(b 7) 10)
+                :: 70
+
+                (greater:c(b 7) 10)
+                :: %.y
+
+                (greater:c(b 17) 10)
+                :: %.n
+
+
+            :: Doing the same mutation repeatedly can be tedious, so let's bind c to the modified version of the door, where b is 7:
+
+                =c c(b 7)
+
+                (plus:c 10)
+                :: 17
+
+                (times:c 10)
+                :: 70
+
+                (greater:c 10)
+                :: %.y
+
+
+            :: There's a more direct way of passing arguments for both the door sample and the gate sample simultaneously. 
+            
+            :: (!) We may use the ~(arm door arg) syntax (!)
+            
+                :: This generates the arm product after modifying the door's sample to be arg:
+
+                    (~(plus c 7) 10)
+                    :: 17
+
+                    (~(times c 7) 10)
+                    :: 70
+
+                    (~(greater c 7) 10)
+                    :: %.y
+
+                    (~(greater c 17) 10)
+                    :: %.n
+
+            
+                :: Readers with some mathematical background may notice that ~( ) expressions allow us to curry. 
+                
+                :: For each of the arms above, the ~( ) expression is used to create different versions of the same gate:
+
+                    ~(plus c 7)
+                    :: < 1.gxk
+                    ::   { a/@
+                    ::     < 3.iba
+                    ::       { b/@
+                    ::         {our/@p now/@da eny/@uvJ}
+                    ::         < 19.anu
+                    ::           24.tmo
+                    ::           6.ipz
+                    ::           38.ard
+                    ::           119.spd
+                    ::           241.plj
+                    ::           51.zox
+                    ::           93.pqh
+                    ::           74.dbd
+                    ::           1.qct
+                    ::           $141
+                    ::         >
+                    ::       }
+                    ::     >
+                    ::   }
+                    :: >
+
+                    b:~(plus c 7)
+                    :: 7
+
+                    b:~(plus c 17)
+                    :: 17
+
+                :: Thus, you may think of the c door as a function for making functions. 
+                
+                :: Using the ~(arm c arg) syntax -- arm defines which kind of gate is produced (i.e., which arm of the door is used to create the gate), and arg defines the value of b in that gate, which in turn affects the product value of the gate produced.
+
+                :: The standard library provides currying functionality outside of the context of doors - see +curr and +cury.
+
+
+
+
+            :: In the above example we created a door c with sample b=@ and found that the initial value of b was 0, the bunt value of @. 
+            
+            :: We then created new door from c by modifying the value of b. 
+            
+            :: But what if we wish to define a door with a chosen sample value directly? 
+            
+            :: We make use of the $_ rune, whose irregular form is simply _. 
+            
+
+            :: To create the door c with the sample b=@ set to have the value 7 in the dojo, we would write:
+
+                =c |_  b=_7
+                ++  plus  |=(a=@ (add a b))
+                ++  times  |=(a=@ (mul a b))
+                ++  greater  |=(a=@ (gth a b))
+                --
+
+            :: instead of our original:
+
+                =c |_  b=@
+                ++  plus  |=(a=@ (add a b))
+                ++  times  |=(a=@ (mul a b))
+                ++  greater  |=(a=@ (gth a b))
+                --
+            
+            :: Here the type of b is inferred to be @ based on the example value 7, similar to how we've seen casting done by example.
+
+
+        
+
+
+        :: Doors in the Hoon Standard Library
+
+
+            :: Atoms are unsigned integers, but sometimes programmers want to work with fractions and decimal points. 
+            
+            :: Accordingly, there are auras for floating point numbers. 
+            
+
+            :: Let's work with the aura for doing single-precision floating point arithmetic: @rs.
+
+                :: The @rs has its own literal syntax. 
+                
+                :: These atoms are represented as a . followed by digits, and possibly another . (for the decimal point) and more digits. 
+                
+                :: For example, the float 3.14159 can be represented as a single-precision (32 bit) float with the literal expression .3.14159.
+
+                :: You can't use the ordinary add function to get the correct sum of two @rs atoms:
+
+                    (add .3.14159 .2.22222)
+                    :: 2.153.203.882
+
+                :: That's because the add gate is designed for use with raw atoms, not floating point values. 
+                
+                :: You can add two @rs atoms as follows:
+
+                    :: (add:rs .3.14159 .2.22222)
+                    .5.36381
+
+
+
+                :: It turns out that the rs in add:rs is a Hoon standard library arm that produces a door. Let's take a closer look:
+
+                    rs
+                    :: <21|fan {r/?($n $u $d $z) <51.zox 93.pqh 74.dbd 1.qct $141>}>
+
+                    :: The battery of this core, pretty-printed as 21|fan, has 21 arms that define functions specifically for @rs atoms. 
+
+                    :: One of these arms is named add; it's a different add from the standard one we've been using for vanilla atoms.
+
+
+
+                    :: So when you invoke add:rs instead of just add in a function call;
+
+                        :: (1) the rs door is produced,
+
+                        :: (2) the name search for add resolves to the special add arm in rs
+
+                    :: This produces the gate for adding @rs atoms:
+
+                        add:rs
+                        :: < 1.hsu
+                        ::    {{a/@rs b/@rs} <21.fan {r/?($n $u $d $z) <51.zox 93.pqh 74.dbd 1.qct $141>}>}
+                        :: >
+
+
+
+                :: What about the sample of the rs door? 
+                
+                    :: The pretty-printer shows r/?($n $u $d $z). What does this mean? 
+                    
+                    :: Without yet explaining this notation fully, we'll simply say that the rs sample can take one of four values: %n, %u, %d, and %z.
+                    
+                    :: These argument values represent four options for how to round @rs numbers:
+
+                        %n  :: round to the nearest value
+                        %u  :: round up
+                        %d  :: round down
+                        %z  :: round to zero
+
+                    :: The default value is %z -- round to zero. 
+
+                    :: When we invoke add:rs to call the addition function, there is no way to modify the rs door sample, so the default rounding option is used. 
+                    
+                    :: How do we change it? We use the ~( ) notation: ~(arm door arg).
+
+                    :: Let's evaluate the add arm of rs, also modifying the door sample to %u for 'round up':
+
+                        ~(add rs %u)
+                        :: < 1.hsu
+                        ::    {{a/@rs b/@rs} <21.fan {r/?($n $u $d $z) <51.zox 93.pqh 74.dbd 1.qct $141>}>}
+                        :: >
+
+                        :: This is the gate produced by add, and you can see that its sample is a pair of @rs atoms. 
+                        
+                        :: But if you look in the context you'll see the rs door. 
+                        
+                        :: Let's look in the sample of that core to make sure that it changed to %u. 
+                        
+                        :: We'll use the wing +6.+7 to look at the sample of the gate's context:
+
+                            +6.+7:~(add rs %u)
+                            :: r=%u
+
+                            :: It did indeed change.
+                            
+                        :: We also see that the door sample uses the face r, so let's use that instead of the unwieldy +6.+7:
+
+                            r:~(add rs %u)
+                            :: %u
+
+                        :: We can do the same thing for rounding down, %d:
+
+                            r:~(add rs %d)
+                            :: %d
+                            
+                    
+                    :: Let's see the rounding differences in action. 
+                    
+                    :: Because ~(add rs %u) produces a gate, we can call it like we would any other gate:
+
+                        (~(add rs %u) .3.14159265 .1.11111111)
+                        :: .4.252704
+
+                        (~(add rs %d) .3.14159265 .1.11111111)
+                        :: .4.2527037
+
+
+                        :: This difference between rounding up and rounding down might seem strange at first. 
+                        
+                        :: There is a difference of 0.0000003 between the two answers. Why does this gap exist? 
+                        
+                        :: Single-precision floats are 32-bit and there's only so many distinctions that can be made in floats before you run out of bits.
+
+                    
+                    :: Just as there is a door for @rs functions, there is a Hoon standard library door for @rd functions (double-precision 64 bit floats), another for @rq functions (quad-precision 128 bit floats), and more.
+
+
+
+
+        :: Mutating the rs Door
+
+            :: Can we mutate the rs door so that its sample is %u? Let's try it:
+
+                rs(r %u)
+                :: -tack.r
+                :: -find.r
+
+                :: Oops! Why didn't this work?
+
+                :: Remember, rs isn't itself a door; it's an arm that produces a door.
+                
+                :: The rs in rs(r %u) resolves to the nameless parent core of rs, and the search for r commences there. 
+                
+                :: But that face can't be found in that parent core -- it's not where we want to look.
+
+
+            :: It's better simply to use the ~(arm rs arg) syntax to replace the value of the rs door sample with arg.
+            
+
+
+
+
 
 
 
