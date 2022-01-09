@@ -410,5 +410,180 @@
                 :: 246
 
                 sum:c
-                99
+                :: 99
 
+
+
+        :: Arms on the Search Path
+
+            :: A wing is a search path into the subject.
+
+            :: What if an arm name in a wing isn't the final limb? What if it's elsewhere in the wing path?
+
+            :: Normally we might read a wing expression like two.double.c as 'two in double in c'. 
+            
+            :: Does that make sense when double is itself an arm? Try it:
+
+                :: =c |%
+                :: ++  two  2
+                :: ++  inc  (add 1 a)
+                :: ++  double  (mul 2 a)
+                :: ++  sum  (add -.b +.b)
+                :: --
+
+                two.double.c
+                :: 2
+
+            :: When arm names are included in the body of a wing, the resolution behavior is a little different from that of legs. 
+            
+            :: Instead of indicating that the wing resolution should continue in the arm itself, an arm name indicates that the resolution should continue in the parent core of the arm.
+
+
+
+            :: So the meaning of two.double.c is, roughly, 'two in the parent core of double in c'. 
+            
+            :: Of course, Hoon doesn't know that double is an arm until the search for it ends; but once the double arm is found, Hoon continues the resolution from the parent core of double, not double itself. 
+            
+            :: It turns out in this case that this is a redundant step. c is the parent core and was already in the wing path. We can illustrate redundancy more dramatically:
+
+            double.two.sum.two.double.inc.c
+            :: 246
+
+            two.double.two.sum.two.double.inc.c
+            :: 2
+
+            sum.two.double.two.sum.two.double.inc.c
+            :: 99
+
+            :: (!) the only wings that matter are c and whichever arm name is left-most in the expression. The other arm names in the path simply resolve to their parent core, which is just c (!)
+
+
+
+    
+        :: The ..arm Syntax
+
+            :: using . by itself returns the whole subject. With that in mind, take a moment to answer the following question on your own. In general, what should the expression ..arm produce?
+
+            :: ..inc of c is just the parent core of inc, c itself. 
+            
+            :: But why would we ever use ..inc to refer to c? It's much simpler to use c.
+
+
+            :: Sometimes the ..arm syntax is quite useful. Often there is a core in the subject without a face bound to it; i.e., the core might be nameless. In that case you can use an arm name in that core to refer to the whole core.
+
+
+            :: For an example of this, consider the add arm of the Hoon standard library. This arm is in a nameless core. To see the parent core of add, try ..add:
+
+                ..add
+                :: <74.dbd 1.qct $141>
+
+                :: Here you see a core with a battery of 74 arms (!), and whose payload is another core with one arm.
+
+
+
+
+        :: Evaluating an Arm Against a Modified Core
+
+            :: Assume this.is.a.wing is a wing that resolves to an arm. 
+            
+            :: You can use the this.is.a.wing(face new-value) syntax to compute the arm against a modified version of the parent core of this.is.a.wing.
+
+                double.c(a 55)
+                :: 110
+
+                inc.c(a 55)
+                :: 56
+
+                :: This almost looks like a function call of sorts.
+
+
+
+
+
+        :: Cores, Gates, and Traps
+
+            :: Let's take a quick look at the battery of one core in the dojo to show that this is true by inputting one into the dojo:
+
+                =dec |%
+                ++  dec
+                    |=  a=@
+                    ?<  =(0 a)
+                    =+  b=0
+                    |-  ^-  @
+                    ?:  =(a +(b))  b
+                    $(b +(b))
+                --
+
+                :: This core has one arm dec which implements decrement. If we look at the head of the core we'll see the Nock.
+
+
+                :: ...?
+
+
+
+
+        :: Cores and Contexts
+
+            :: Let's take a quick look at how cores can be combined with => to build up larger structures. 
+            
+            :: => p=hoon q=hoon yields the product of q with the product of p taken as the subject.
+
+            :: We can use this to set the context of cores. Recall that the payload of a gate is a cell of [sample context]. For example:
+
+                =foo =>([1 2] |=(@ 15))
+                +3:foo
+                :: [0 1 2]
+
+                :: Here we have created a gate with [1 2] as its context that takes in an @ and returns 15. 
+                
+                :: +3:foo shows the payload of the core to be [0 [1 2]]. 
+                
+                :: Here 0 is the default value of @ and is the sample, while [1 2] is the context that was given to foo.
+
+
+            :: => (and its reversed version =<) are used extensively to put cores into the context of other cores.
+
+                =>
+                |%
+                ++  foo
+                  |=  a=@
+                  (mul a 2)
+                --
+                |%
+                ++  bar
+                  |=  a=@
+                  (mul (foo a) 2)
+                --
+
+                :: At the level of arms, +foo is in the subject of +bar, and so +bar is able to call +foo. 
+                
+                :: On the other hand, +bar is not in the subject of +foo, so +foo cannot call +bar - you will get a -find.bar error.
+
+
+                :: At the level of cores, the => sets the context of the core containing +bar to be the core containing +foo. 
+                
+                :: Recall that arms are evaluated with the parent core as the subject. Thus +bar is evaluated with the core containing it as the subject, which has the core containing +foo in its context. 
+                
+                :: So this is why +foo is in the scope of +bar but not vice versa.
+
+
+
+            :: Let's look inside hoon.hoon, where the standard library is located, to see how this is being used.
+
+            :: The first core listed here has just one arm:
+
+                |%
+                ++  hoon-version  141
+                --
+
+            :: This is reflected in the subject of hoon-version:
+
+                ..hoon-version
+                :: <1.ane $141>
+
+
+
+
+    :: Casts
+
+        :: it's a good idea when writing your code to cast your data structures often. The Hoon type inferencer is quite naive and while it will often correctly understand what you mean, manually casting can be beneficial both for someone reading the code and for helping you debug problems.
