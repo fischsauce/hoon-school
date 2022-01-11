@@ -9,7 +9,7 @@
 |-
 ?:  =(a (flop a))  `@t`'True'  `@t`'False'
 
-    :: This works, but how do i enable normal boolean types as the output here?
+    :: This works, but how do I enable normal boolean types as the output here?
 
 
     :: From the docs, the solutution is more simple:
