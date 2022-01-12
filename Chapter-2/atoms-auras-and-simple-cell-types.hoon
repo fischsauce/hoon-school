@@ -525,3 +525,218 @@
 
                 `@da`(add ~d1 now)
                 :: ~2018.5.18..00.15.31..2df6
+
+
+
+
+
+        :: Floats
+
+            ::  Here are the float auras from the aura chart above:
+
+                :: Aura         Meaning                        Example Literal
+                :: ------------------------------------------------------------
+                :: @r           IEEE floating-point
+                :: @rd        double precision  (64 bits)    .~6.02214085774e23
+                :: @rh        half precision (16 bits)       .~~3.14
+                :: @rq        quad precision (128 bits)      .~~~6.02214085774e23
+                :: @rs        single precision (32 bits)     .6.022141e23
+
+
+            :: One thing needs to be pointed out for float auras. Atoms are fundamentally integers, and only when interpreted differently can they be understood as floats. 
+            
+            :: Floats obviously can't all map to numerically equivalent atoms:
+
+                .6.022
+                :: .6.022
+
+                ? .6.022
+                :: @rs
+                :: .6.022
+
+                `@`.6.022
+                :: 1.086.370.873
+
+
+            :: As a result, the standard mathematical functions for atoms won't work correctly for floats:
+
+                (add .6.022 .1.000)
+                :: 2.151.724.089
+
+                `@rs`(add .6.022 .1.000)
+                :: .-5.942123e-39
+
+
+            :: Instead, you'll have to call the variant function for that type of float: 
+            
+            :: add:rs for @rs floats, 
+            :: add:rd for @rd floats, 
+            :: add:rq for @rq floats,
+            :: add:rh for @rh floats.
+
+                (add:rs .6.022 .1.000)
+                :: .7.022
+
+                (add:rd .~6.022 .~1.000)
+                :: .~7.022
+
+
+
+        
+    :: Custom Auras
+
+        :: Programmers can use their own auras if desired, keeping in mind however that Hoon won't support custom aura literals or pretty-printing. 
+        
+        :: The set of literals Hoon knows how to parse and/or print is fixed. But there are plenty of good reasons to use your own user-defined auras.
+
+
+
+        :: If your program uses both 'fortnights' and 'furlongs', Hoon will not parse a user-defined fortnight syntax. It will not print furlongs in the dojo. But the type system can prevent you from accidentally passing a furlong to a function that expects a fortnight.
+
+
+
+        :: (!) Remember also that auras specialize to the right (!)
+        
+            :: For example, @u atoms are interpreted as unsigned integers; @ux atoms are interpreted as unsigned hexadecimal integers.
+
+                `@madeupaura`123
+                :: 0x7b
+
+                ^-(@abc `@abc`123)
+                :: 0x7b
+
+                ^-(@ab `@abc`123)
+                :: 0x7b
+
+                ^-(@abcd `@abc`123)
+                :: 0x7b
+
+                ^-(@abd `@abc`123)
+                :: nest-fail
+
+
+
+
+
+    :: General and Constant Atoms
+
+        :: There's more to the type information of an atom than its aura. Another distinction is necessary. 
+        
+        :: (!) Some atoms are general in type, meaning that the type in question includes all atoms (!)
+        
+        :: For example, the type of the literal 17 is @ud; every atom can be of that type. Up to this point of this lesson every atom has been general.
+
+
+
+        :: There are also atoms that are constant in type. Constant atom types contain just one atom. But that's not all. Constant atom types contain just one atom with just one aura.
+
+        :: For atomic constant literal syntax simply put % in front of the atom literal:
+
+            ? 15
+            :: @ud
+            :: 15
+
+            ? %15
+            :: $15
+            :: %15
+
+            ? %~h6
+            :: $~h6
+            :: %~h6
+
+            ? %hello
+            :: $hello
+            :: %hello
+
+
+        :: The $ on the type indicates the constant. You can use the same literal syntax to cast:
+
+            ^-(%15 %15)
+            :: %15
+
+        :: Keep in mind that, underneath, 15 and %15 are the same atom:
+
+            ^-(@ 15)
+            :: 15
+
+            ^-(@ %15)
+            :: 15
+
+        :: But because they have different auras, 15 doesn't nest under the type for %15:
+
+            ^-(%15 15)
+            :: nest-fail
+
+
+
+
+        :: When you cast using a constant as your type, you're asking for something very specific: one particular atom with one particular aura. If both conditions aren't met, the result of the cast will be a nest-fail.
+
+            `@`%0xf
+            :: 15
+
+            `@`%15
+            :: 15
+
+            ^-(%15 %0xf)
+            :: nest-fail
+
+            ^-(%0xf %15)
+            :: nest-fail
+
+            ^-(%0xf %0xf)
+            :: %0xf
+
+
+
+
+
+    :: Common irregulars
+
+        :: There are a few special forms worth learning early. 
+        
+            :: Null @n, a special constant type for 0:
+
+                ~
+                :: ~
+
+                `@`~
+                :: 0
+
+                ^-(@n ~)
+                :: ~
+
+
+
+            :: Flag ?, which is for boolean values:
+
+                |
+                :: %.n
+
+                &
+                :: %.y
+
+                ^-(? |)
+                :: %.n
+
+                ^-(? &)
+                :: %.y
+
+
+
+            :: And ship names use @p:
+
+                ~zod
+                :: ~zod
+
+                ~sorreg-namtyv
+                :: ~sorreg-namtyv
+
+                `@`~zod
+                :: 0
+
+                `@`~taglux-nidsep
+                :: 6.095.360
+
+                ^-(@p ~taglux-nidsep)
+                :: ~taglux-nidsep
