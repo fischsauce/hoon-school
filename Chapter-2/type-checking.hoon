@@ -119,3 +119,37 @@
 
 
 
+
+        :: Arm Evaluations
+
+            :: Whenever an arm is evaluated in Hoon it expects to have some version of its parent core as the subject. Specifically, a type check is performed to see whether the arm subject is of the appropriate type. We see this in action whenever a gate or a multi-arm door is called.
+
+
+            :: A gate is a one-armed core with a sample. 
+            
+            :: When it is called, its $ arm is evaluated with (a version of) the gate as the subject. 
+            
+            :: The only part of the core that might change is the payload, including the sample. 
+            
+            :: Of course, we want the sample to be able to change. The sample is where the argument(s) of the function call are placed. 
+            
+            :: For example, when we call add the $ arm expects two atoms for the sample, i.e., the two numbers to be added. When the type check occurs, the payload must be of the appropriate type. If it isn't, the result is a nest-fail crash.
+
+                (add 22 33)
+                :: 55
+
+                (add [10 22] [10 33])
+                :: nest-fail
+
+                (|=(a=@ [a a]) 15)
+                :: [15 15]
+
+                (|=(a=@ [a a]) 22)
+                :: [22 22]
+
+                (|=(a=@ [a a]) [22 22])
+                :: nest-fail
+
+
+
+        :: This isn't a comprehensive list of the type checks in Hoon. It's only some of the most commonly used kinds. Two other runes that include a type check are =. and %_.
