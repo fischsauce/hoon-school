@@ -182,8 +182,10 @@
 
             :: Using ?= for Type Inference
 
+
                 :: The ?= rune is particularly useful when used with the ?: rune, because in these cases Hoon uses the result of the ?= evaluation to infer type information. 
                 
+
 
                 :: To see how this works lets use =/ to define a face, b, as a generic noun:
 
@@ -199,6 +201,7 @@
                     :: (!) Remember that ? isn't part of Hoon -- it's a dojo-specific instruction. (!)
 
 
+
                 :: Let's replace that last b with a ?: expression whose condition subexpression is a ?= test. 
                 
                 :: If b is an @, it'll produce [& b]; otherwise [| b]:
@@ -206,3 +209,135 @@
                     =/(b=* 12 ?:(?=(@ b) [& b] [| b]))
                     :: [%.y 12]
 
+                :: You can't see it here, but the inferred type of b in [& b] is @. That subexpression is only evaluated if ?=(@ b) evaluates as true; hence, Hoon can safely infer that b must be an atom in that subexpression. 
+                
+                
+                
+                :: Let's set b to a different initial value but leave everything else the same:
+
+                    =/(b=* [12 14] ?:(?=(@ b) [& b] [| b]))
+                    :: [%.n 12 14]
+                
+                :: You can't see it here either, but the inferred type of b in [| b] is ^. That subexpression is only evaluated if ?=(@ b) evaluates as false, so b can't be an atom there. It follows that it must be a cell.
+
+
+
+
+
+            :: The Type Spear
+
+
+                :: We think we're trustworthy, but perhaps you don't want to take our word for it. What if you want to see the inferred type of b for yourself for each conditional branch? One way to do this is with a 'type spear'. 
+
+                :: But you need to understand the !> rune before using this mighty weapon of war. 
+                
+                :: !> takes one subexpression and constructs a cell from it. 
+                
+                :: The subexpression is evaluated and becomes the tail of the product cell, with a q face attached. 
+                
+                :: The head of the product cell is the inferred type of the subexpression. Examples:
+
+                    !>(15)
+                    :: [#t/@ud q=15]
+
+                    !>([12 14])
+                    :: [#t/{@ud @ud} q=[12 14]]
+
+                    !>((add 22 55))
+                    :: [#t/@ q=77]
+
+                :: The #t/ is just the pretty-printer's way of indicating a type.
+
+
+
+                :: To get just the inferred type of an expression, we only want the head of the !> product, -. Thus we should use the type spear, -:!>
+
+                    -:!>(15)
+                    :: #t/@ud
+
+                    -:!>([12 14])
+                    :: #t/{@ud @ud}
+
+                    -:!>((add 22 55))
+                    :: #t/@
+
+
+
+                :: Now let's try using ?= with ?: again. 
+
+                :: But this time we'll replace [& b] with [& -:!>(b)] and [| b] with [| -:!>(b)]. With b as 12:
+
+                    =/(b=* 12 ?:(?=(@ b) [& b] [| b]))
+
+
+                    =/(b=* 12 ?:(?=(@ b) [& -:!>(b)] [| -:!>(b)]))
+                    :: [%.y #t/@]
+
+                        :: ...and with b as [12 14]:
+
+                    =/(b=* [12 14] ?:(?=(@ b) [& -:!>(b)] [| -:!>(b)]))
+                    :: [%.n #t/{* *}]
+
+
+                :: In both cases, b is defined initially as a generic noun, *. But when using ?: with ?=(@ b) as the test condition, b is inferred to be an atom, @, when the condition is true; otherwise b is inferred to be a cell, ^ (identical to {* *}).
+
+
+
+
+
+            :: mint-vain
+
+                :: Expressions of the form ?:(?=(a b) c d) should only be used when the previously inferred type of b isn't specific enough to determine whether it nests under a.
+
+                :: (!) This kind of expression is only to be used when ?= can reveal new type information about b, not to confirm information Hoon already has (!)
+
+
+
+                :: For example, if you have a wing expression (e.g., b) that is already known to be an atom, @, and you use ?=(@ b) to test whether b is an atom, you'll get a mint-vain crash:
+
+                    =/(b=@ 12 ?:(?=(@ b) [& b] [| b]))
+                    :: mint-vain
+
+                    :: In the first case it's already known that b is an atom.
+
+
+                :: The same thing happens if b is initially defined to be a cell ^:
+
+                    =/(b=^ [12 14] ?:(?=(@ b) [& b] [| b]))
+                    :: mint-vain
+
+                    :: In the second case it's already known that b isn't an atom. 
+
+                
+                :: Either way, the check is superfluous and thus one of the ?: branches will never be taken. 
+                
+                :: (!) The mint-vain crash indicates that it's provably the case one of the branches will never be taken (!)
+
+
+
+
+
+
+            :: ?@ Atom Match Tests
+
+                :: The ?^ rune is just like ?@ except it's a test for a cell match instead of an atom match. 
+                
+                :: The first subexpression is evaluated, and if the resulting value is an instance of ^ the second subexpression is evaluated. Otherwise, the third is.
+
+                    =/(b=* 12 ?^(b %cell %atom))
+                    :: %atom
+
+                    =/(b=* [12 14] ?^(b %cell %atom))
+                    :: %cell
+
+
+
+                :: Again, if the second subexpression is evaluated, Hoon infers that b is a cell; if the third, Hoon infers that b is an atom. 
+                
+                :: If one of the conditional branches is provably never evaluated, the expression crashes with a mint-vain:
+
+                    =/(b=@ 12 ?^(b %cell %atom))
+                    :: mint-vain
+
+                    =/(b=^ 12 ?^(b %cell %atom))
+                    :: nest-fail
