@@ -287,6 +287,7 @@
 
             :: mint-vain
 
+
                 :: Expressions of the form ?:(?=(a b) c d) should only be used when the previously inferred type of b isn't specific enough to determine whether it nests under a.
 
                 :: (!) This kind of expression is only to be used when ?= can reveal new type information about b, not to confirm information Hoon already has (!)
@@ -320,6 +321,51 @@
 
             :: ?@ Atom Match Tests
 
+
+                :: The ?@ rune takes three subexpressions. 
+                
+                :: The first is evaluated, and if its value is an instance of @, the second subexpression is evaluated. Otherwise, the third subexpression is evaluated.
+
+                    =/(b=* 12 ?@(b %atom %cell))
+                    :: %atom
+
+                    =/(b=* [12 14] ?@(b %atom %cell))
+                    :: %cell
+
+                :: If the second ?@ subexpression is evaluated, Hoon correctly infers that b is an atom. if the third subexpression is evaluated, Hoon correctly infers that b is a cell.
+
+                    =/(b=* 12 ?@(b [%atom -:!>(b)] [%cell -:!>(b)]))
+                    :: [%atom #t/@]
+
+                    > =/(b=* [12 14] ?@(b [%atom -:!>(b)] [%cell -:!>(b)]))
+                    :: [%cell #t/{* *}]
+
+
+                :: If the inferred type of the first ?@ subexpression nests under @ then one of the conditional branches provably never runs. Attempting to evaluate the expression results in a mint-vain:
+
+                    ?@(12 %an-atom %not-an-atom)
+                    :: mint-vain
+
+                    ?@([12 14] %an-atom %not-an-atom)
+                    :: mint-vain
+
+                    =/(b=@ 12 ?@(b %an-atom %not-an-atom))
+                    :: mint-vain
+
+                    =/(b=^ [12 14] ?@(b %an-atom %not-an-atom))
+                    :: mint-vain
+
+
+                :: (!) ?@ should only be used when it allows for Hoon to infer new type information; it shouldn't be used to confirm type information Hoon already knows (!)
+
+
+
+
+
+
+            :: ?^ Cell Match Tests
+
+
                 :: The ?^ rune is just like ?@ except it's a test for a cell match instead of an atom match. 
                 
                 :: The first subexpression is evaluated, and if the resulting value is an instance of ^ the second subexpression is evaluated. Otherwise, the third is.
@@ -341,3 +387,166 @@
 
                     =/(b=^ 12 ?^(b %cell %atom))
                     :: nest-fail
+
+
+
+
+
+            :: Leaf Counting
+
+
+                :: Nouns can be understood as binary trees in which each 'leaf' of the tree is an atom. 
+                
+                :: Let's look at a program that takes a noun and returns the number of leaves in it, i.e., the number of atoms:
+
+                    |=  a=*                             ::  1
+                    ^-  @                               ::  2
+                    ?@  a                               ::  3
+                      1                                 ::  4
+                    (add $(a -.a) $(a +.a))             ::  5
+
+
+
+                :: This program is pretty simple. If the noun a is an atom, then it's a tree of one leaf; return 1. Otherwise, the number of leaves in a is the sum of the leaves in the head, -.a, and the tail, +.a:
+
+                    +leafcount 12
+                    :: 1
+
+                    +leafcount [12 14]
+                    :: 2
+
+                    +leafcount [12 [63 [829 12] 23] 13]
+                    :: 6
+
+                :: (!) We have been careful to use -.a and +.a only on a branch for which a is proved to be a cell -- then it's safe to treat a as having a head and a tail. (!)
+
+
+
+
+
+            :: Cell Counting
+
+                :: Here's a program that counts the number of cells in a noun:
+
+                    |=  a=*                        ::  1
+                    =|  c=@                        ::  2
+                    |-  ^-  @                      ::  3
+                    ?@  a                          ::  4
+                        c                          ::  5
+                    %=  $                          ::  6
+                        c  $(c +(c), a -.a)        ::  7
+                        a  +.a                     ::  8
+                    ==                             ::  9
+
+                :: This code is a little more tricky. The basic idea, however, is simple. 
+                
+                :: We have a counter value, c, whose initial value is 0. We trace through the noun a, adding 1 to c every time we come across a cell. 
+                
+                :: For any part of the noun that is just an atom, c is returned unchanged.
+
+                    +cellcount 12
+                    :: 0
+
+                    +cellcount [12 14]
+                    :: 1
+
+                    +cellcount [[12 [14 15]] [15 [14 22]]]
+                    :: 5
+
+
+                :: What makes this program is little harder to follow is that it has a recursion call within a recursion call. 
+
+                    :: The first recursion expression on line 6 makes changes to two face values: c, the counter, and a, the input noun. 
+
+                    :: The new value for c defined in line 7 is another recursion call (this time in irregular syntax). 
+
+                    :: The new value for c is to be: the result of running the same function on the the head of a, -.a, and with 1 added to c. 
+
+                    :: We add 1 because we know that a must be a cell. Otherwise, we're asking for the number of cells in the rest of -.a.
+
+                    :: Once that new value for c is computed from the head of a, we're ready to check the tail of a, +.a. We've already got everything we want from -.a, so we throw that away and replace a with +.a.
+
+
+
+
+
+
+            :: Lists
+
+                :: You learned about lists earlier in the chapter, but we left out a little bit of information about the way Hoon understands list types.
+
+                    :: (!) A non-null list is a cell (!) 
+                    
+                    :: If b is a non-null list then the head of b is the first item of b with an i face on it. 
+                    
+                    :: The tail of b is the rest of the list. 
+                    
+                    :: The 'rest of the list' is itself another list with a t face on it. 
+                    
+                    :: (!) We can (and should) use these i and t faces in list functions (!)
+
+                
+                :: To illustrate: let's say that b is the list of the atoms 11, 22, and 33. Let's construct this in stages:
+
+                    [i=11 t=[rest-of-list-b]]
+
+                    [i=11 t=[i=22 t=[rest-of-list-b]]]
+
+                    [i=11 t=[i=22 t=[i=33 t=~]]]
+
+
+                :: (There are lists of every type. Lists of @ud, @ux, @ in general, ^, [^ [@ @]], etc. We can even have lists of lists of @, ^, or ?, etc.)
+
+
+
+                :: Here's a program that takes atoms a and b and returns a list of all atoms from a to b:
+
+                    |=  [a=@ b=@]                      ::  1
+                    ^-  (list @)                       ::  2
+                    ?:  (gth a b)                      ::  3
+                      ~                                ::  4
+                    [i=a t=$(a +(a))]                  ::  5
+
+                
+                :: This program is very simple. It takes two @ as input, a and b, and returns a (list @), i.e., a list of @. 
+                
+                :: If a is greater than b the list is finished: return the null list ~. 
+                
+                :: Otherwise, return a non-null list: a pair in which the head is a with an i face on it, and in which the tail is another list with the t face on it. 
+                
+                :: This embedded list is the product of a recursion call: add 1 to a and run the function again.
+
+                    +gulf [1 10]
+                    :: ~[1 2 3 4 5 6 7 8 9 10]
+
+                    +gulf [10 20]
+                    :: ~[10 11 12 13 14 15 16 17 18 19 20]
+
+                    +gulf [20 10]
+                    :: ~
+
+
+
+                :: Where are all the is and ts??? For the sake of neatness the Hoon pretty-printer doesn't show the i and t faces of lists, just the items.
+
+                    :: In fact, we could have left out the i and t faces in the program itself:
+
+                        |=  [a=@ b=@]                   ::  1
+                        ^-  (list @)                    ::  2
+                        ?:  (gth a b)                   ::  3
+                          ~                             ::  4
+                        [a $(a +(a))]                   ::  5
+
+                    :: Because there is a cast to a (list @) on line 2, Hoon will silently include i and t faces for the appropriate places of the noun. 
+                    
+                    :: (!) Remember that faces are recorded in the type information of the noun in question, not as part of the noun itself (!)
+
+
+
+                :: We called this program gulf.hoon because it replicates the gulf function in the Hoon standard library:
+
+                    (gulf 1 10)
+                    :: ~[1 2 3 4 5 6 7 8 9 10]
+
+                    (gulf 10 20)
+                    :: ~[10 11 12 13 14 15 16 17 18 19 20]
