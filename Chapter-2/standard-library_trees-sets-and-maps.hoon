@@ -266,4 +266,116 @@
 
     :: Maps
 
+        :: Use map to create a set of key-value pairs, e.g., (map '@tas' *) for a set of '@tas' and * pairs. 
+        
+        :: The '@tas' value serves as the 'key', which is a mechanism for tagging or naming the value, *. 
+        
+        :: The key of each key-value pair is unique; every value in a map gets its own unique name.
 
+
+
+        :: One example use case is for storing customer information as a set of pairs: 
+
+            :: (map [employee-name employee-data]).
+
+
+
+        :: The 'by' core in the Hoon standard library contains the various functions for operating on maps. 
+        
+        :: Many of these functions are similar to the set functions of the in core. See the standard library reference documentation for maps here. As was the case with sets, the underlying noun of each map is a tree.
+
+
+
+        :: Two common methods for populating a map include 
+        
+            :: (1) creating it from a list of key-value cells using the 'my' function, and 
+
+            :: (2) inserting items into a map using the 'put' arm of the 'by' core.
+
+
+
+        :: Using 'my':
+
+            =c (my ~[[%one 1] [%two 2] [%three 3]])
+
+            c
+            :: [n=[p=%one q=1] l={[p=%two q=2]} r={[p=%three q=3]}]
+
+            =c `(map @tas @)`c
+
+            c
+            :: {[p=%two q=2] [p=%one q=1] [p=%three q=3]}
+
+
+
+        :: We can add a key-value pair with 'put' of 'by':
+
+            (~(put by c) [%four 4])
+            :: [n=[p=%one q=1] l={[p=%four q=4] [p=%two q=2]} r={[p=%three q=3]}]
+
+            `(map @tas @)`(~(put by c) [%four 4])
+            :: {[p=%four q=4] [p=%two q=2] [p=%one q=1] [p=%three q=3]}
+
+
+
+        :: Delete a key-value pair with 'del' of 'by', keeping in mind that you only need to pick the key of the pair to be deleted:
+
+            `(map @tas @)`(~(del by c) %two)
+            :: {[p=%one q=1] [p=%three q=3]}
+
+
+
+        :: You can produce the value of a key-value pair using 'get' of 'by' on the key:
+
+            (~(get by c) %two)
+            :: [~ 2]
+
+
+            :: This result may be unexpected. Why didn't it just give us 2? 
+            
+            :: The answer has to do with the possibility that a requested key may not be in the map. 
+            
+                :: For example:
+        
+                (~(get by c) %chicken)
+                :: ~
+
+                :: Because there is no %chicken key in c, get simply returns ~ to indicate it's not in the map. Otherwise it returns a pair like the one you see in the next to last example.
+
+
+            :: (!) 'get' of 'by' returns the key's value as a 'unit', not as raw data (!)
+            
+
+            :: There are two kinds of units: null ~, and non-null. 
+            
+                :: A non-null unit is a pair of '[~ value]'. 
+                
+                :: Unit types are constructed the way list, set, and map types are; for example, (unit @) is the type for a unit whose value is an atom.
+
+
+
+        :: If you want to get some key value without producing a unit, use 'got' instead:
+
+            (~(got by c) %two)
+            :: 2
+
+            (~(got by c) %chicken)
+            :: ####
+            :: ford: %ride failed to execute:
+
+
+
+        :: Use 'has' of 'by' to see whether a certain key is in the map:
+
+            (~(has by c) %two)
+            :: %.y
+
+            (~(has by c) %chicken)
+            :: %.n
+
+
+
+        :: You can use 'run' of 'by' to apply a gate to each value in a map, producing a map with the modified values:
+
+            (~(run by c) |=(a=@ (mul 2 a)))
+            :: {[p=%two q=4] [p=%one q=2] [p=%three q=6]}
